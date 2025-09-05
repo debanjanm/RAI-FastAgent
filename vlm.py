@@ -7,10 +7,53 @@ os.environ['LM_STUDIO_API_KEY']  = "lm-studio"
 import base64
 
 
-with open("test.jpg", "rb") as f:
-    data = f.read()
+# with open("test.jpg", "rb") as f:
+#     data = f.read()
 
-base64_string = base64.b64encode(data).decode("utf-8")
+# base64_string = base64.b64encode(data).decode("utf-8")
+
+
+# def pdf_to_base64(pdf_path):
+#     with open(pdf_path, "rb") as f:
+#         data = f.read()
+#     return base64.b64encode(data).decode("utf-8")
+
+# base64_string = pdf_to_base64("test.pdf")
+
+import base64
+from pdf2image import convert_from_path
+import io
+
+def pdf_to_base64_images(pdf_path, dpi=200, fmt="PNG"):
+    """
+    Convert each page of a PDF into a base64-encoded image string.
+
+    Args:
+        pdf_path (str): Path to PDF file
+        dpi (int): Resolution for rendering
+        fmt (str): Image format ("PNG" or "JPEG")
+
+    Returns:
+        List[str]: List of base64 image strings
+    """
+    images = convert_from_path(pdf_path, dpi=dpi, fmt=fmt)
+    base64_images = []
+
+    for img in images:
+        buffer = io.BytesIO()
+        img.save(buffer, format=fmt)
+        base64_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        base64_images.append(f"data:image/{fmt.lower()};base64,{base64_str}")
+
+    return base64_images
+
+
+# Example usage
+pdf_path = "PhonePe_Transaction_Statement_unlocked.pdf"
+base64_images = pdf_to_base64_images(pdf_path)
+
+print("First page base64 preview:", base64_images[0][:200], "...")
+
 
 prompt = """You are a meticulous document transcriber.
 
@@ -56,27 +99,45 @@ Append a short "## Extraction Notes" section with:
 
 Return only Markdown content."""
 
+# # openai call
+# response = completion(
+#     model = "lm_studio/qwen2.5-vl-7b",
+#     messages=[
+#         {
+#             "role": "user",
+#             "content": [
+#                             {
+#                                 "type": "text",
+#                                 "text": prompt
+#                             },
+#                             {
+#                                 "type": "image_url",
+#                                 "image_url": {
+#                                 "url": f"data:image/jpeg;base64,{base64_string}"
+#                                 }
+#                             }
+#                         ]
+#         }
+#     ],
+# )
+
 # openai call
 response = completion(
-    model = "lm_studio/qwen2.5-vl-7b",
+    model="lm_studio/qwen2.5-vl-7b",
     messages=[
         {
             "role": "user",
             "content": [
-                            {
-                                "type": "text",
-                                "text": prompt
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_string}"
-                                }
-                            }
-                        ]
+                {"type": "text", "text": prompt},
+                *[
+                    {"type": "image_url", "image_url": {"url": img}}
+                    for img in base64_images
+                ]
+            ],
         }
     ],
 )
+
 print(response.choices[0].message.content)
 
 # curl http://localhost:1234/v1/chat/completions \
