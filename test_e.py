@@ -76,3 +76,12 @@ print(single_vector)
 print(str(single_vector)[:100])  # Show the first 100 characters of the vector
 
 
+from langchain_community.vectorstores import Chroma
+
+texts = ["Hello world", "LangChain with LM Studio", "Local embeddings are great!"]
+
+db = Chroma.from_texts(texts, embeddings)
+results = db.similarity_search("hello world")
+
+for d in results:
+    print(d.page_content)
